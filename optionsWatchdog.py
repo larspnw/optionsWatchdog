@@ -5,12 +5,17 @@ import re
 from datetime import datetime
 import logging
 
-logging.basicConfig(level=logging.WARNING)
-#logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.DEBUG)
 HEADER = "   Stock DTE CurrPrice OptsPrice Type Status %OTM"
 date_format = "%Y/%m/%d"
 today = datetime.today()
 logging.debug(today)
+with open('config.json') as json_data_file:
+    config = json.load(json_data_file)
+logging.debug("config: " + json.dumps(config, indent=4))
+aws = config["aws"]
+logging.debug("aws: " + aws)
 
 class StockOpt:
     name = ""
