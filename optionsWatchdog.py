@@ -13,11 +13,11 @@ HEADER = "   Stock DTE CurrPrice OptsPrice Type Status %OTM"
 date_format = "%Y/%m/%d"
 today = datetime.today()
 logging.debug(today)
-isAWS = False
+isAWS = True
 
 #Don't need config yet...
 #with open('config.json') as json_data_file:
-    #config = json.load(json_data_file)
+#config = json.load(json_data_file)
 #logging.debug("config: " + json.dumps(config, indent=4))
 #aws = config["aws"]
 #logging.debug("aws: " + aws)
@@ -42,9 +42,6 @@ class StockOpt:
 def lambda_handler(event, context):
 
     logging.debug("lambda_handler enter")
-    isAWS = True
-    import boto3
-
     r = run()
     return {
         'statusCode': 200,
@@ -82,11 +79,13 @@ def yScrape(stock):
 
 def loadOptionsData():
 
-    if isAWS:
+    if isAWS == True:
+        import boto3
         s3 = boto3.client('s3')
         try:
             data = s3.get_object(Bucket='larsbucket1', Key='optionsData.txt')
-            json_data = data['Body'].read()
+            json_data = json.load(data['Body'])
+            #json_data = json.load(data['Body'].read())
             return json_data
         except Exception as e:
             print(e)
@@ -174,5 +173,6 @@ def run():
         print(e.toString())
 
 if __name__ == '__main__':
+    isAWS = False
     run()
 
