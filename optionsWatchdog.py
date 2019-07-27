@@ -4,8 +4,10 @@ from bs4 import BeautifulSoup
 import re
 from datetime import datetime
 import logging
+import io
 
 #TODO: add premium to output
+#TODO output as json option
 
 logging.basicConfig(level=logging.WARNING)
 #logging.basicConfig(level=logging.DEBUG)
@@ -45,8 +47,9 @@ def lambda_handler(event, context):
     r = run()
     return {
         'statusCode': 200,
-        'body': json.dumps(r)
+        'body': r
     }
+    #'body': json.dumps(r)
 
 def yScrape(stock):
 
@@ -54,8 +57,6 @@ def yScrape(stock):
     bid = ""
     url = "https://finance.yahoo.com/quote/" + stock
     response = requests.get(url)
-
-    #print(response)
 
     soup = BeautifulSoup(response.text, "html.parser")
 
@@ -88,7 +89,7 @@ def loadOptionsData():
             #json_data = json.load(data['Body'].read())
             return json_data
         except Exception as e:
-            print(e)
+            logging.critical(e)
             raise e
 
     else:
@@ -97,7 +98,6 @@ def loadOptionsData():
         try:
             with open(filename) as json_file:
                 data = json.load(json_file)
-                #print(json.dumps(data,indent=4))
         except FileNotFoundError:
             print("Error: file not found: " + filename)
             logging.critical("Error: file not found: " + filename)
@@ -129,8 +129,6 @@ def run():
 
         r = yScrape(stock)
         bid = parseBid(r)
-        #print("bid as float: " + bid)
-        #print("stock / bid: " + stock + " / " + str(bid))
 
         so = StockOpt()
         so.name = stock
@@ -143,12 +141,10 @@ def run():
 
         if optionsType == "put":
             if optionsPrice < bid:
-                #print("OTM");
                 so.IOTM = "OTM"
                 so.pctIOTM = (1 - optionsPrice/bid) * 100
             else:
                 so.IOTM = "ITM"
-                #print("option is in the money")
         else:
             #calls
             if optionsPrice > bid:
@@ -164,15 +160,19 @@ def run():
 
     #report stock, price, options, in/OTM, %OTM, DTE - sort by ITM, DTE
     #TODO print based on output type and runtime
-    print(HEADER)
+    output = io.StringIO()
+    output.write(HEADER + "\n")
+
     #sort by ITM then DTE
     stockOptionsList.sort(key=lambda stockOptions: stockOptions.DTE)
     stockOptionsList.sort(key=lambda stockOptions: stockOptions.IOTM)
     #logging.debug("sorted: " + soSorted)
     for e in stockOptionsList:
-        print(e.toString())
+        output.write(e.toString() + "\n")
+
+    return output.getvalue()
 
 if __name__ == '__main__':
     isAWS = False
-    run()
-
+    r = run()
+    print(r)
