@@ -6,12 +6,11 @@ from datetime import datetime
 import logging
 import io
 
-#TODO: add premium to output
 #TODO output as json option
 
 logging.basicConfig(level=logging.WARNING)
 #logging.basicConfig(level=logging.DEBUG)
-HEADER = "   Stock DTE CurrPrice OptsPrice Type Status %OTM"
+HEADER = "   Stock DTE CurrPrice OptsPrice Type Status %OTM Prem"
 date_format = "%Y/%m/%d"
 today = datetime.today()
 logging.debug(today)
@@ -33,13 +32,14 @@ class StockOpt:
     pctIOTM = 0
     expirationDate = ""
     DTE = 0
+    premium = 0
 
     def toString(self):
         logging.debug("stockOptions.toString enter")
         alert = ""
         if self.IOTM == "ITM":
             alert = "---"
-        return "{:3} {:4} {:3} {:>7} {:>7} {:4} {:3} {:>.0f}%".format(alert, self.name, self.DTE, self.currentPrice, str(self.optsPrice), self.optType, self.IOTM, self.pctIOTM)
+        return "{:3} {:4} {:3} {:>7} {:>7} {:4} {:3} {:>.0f}% {:5}".format(alert, self.name, self.DTE, self.currentPrice, str(self.optsPrice), self.optType, self.IOTM, self.pctIOTM, self.premium)
 
 def lambda_handler(event, context):
 
@@ -147,8 +147,6 @@ def parseBid(b):
         logging.warning("Could not convert bid: " + str(b))
         return 9999
 
-#TODO - encapsulate and call
-
 def run():
     #read file into list
     data = loadOptionsData()
@@ -161,6 +159,7 @@ def run():
         optionsType = d["type"]
         optionsPrice = float(d["price"])
         expDate = d["date"]
+        premium = d["premium"]
 
         #r = yScrape(stock)
         #bid = parseBid(r)
@@ -196,7 +195,6 @@ def run():
     #enumerate list
 
     #report stock, price, options, in/OTM, %OTM, DTE - sort by ITM, DTE
-    #TODO print based on output type and runtime
     output = io.StringIO()
     output.write(HEADER + "\n")
 
