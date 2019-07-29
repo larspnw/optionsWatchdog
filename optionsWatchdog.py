@@ -51,6 +51,28 @@ def lambda_handler(event, context):
     }
     #'body': json.dumps(r)
 
+#looks for data-reactid based on agent type
+def yScrape2(stock):
+
+    logging.debug("yScrape2 enter")
+    url = "https://finance.yahoo.com/quote/" + stock
+    response = requests.get(url)
+
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    for tag in soup.find_all('span'):
+        logging.debug(tag)
+        z = re.search(r"data-reactid=\"14\"", str(tag))
+        #logging.debug("re: " + str(z))
+        if z:
+            #logging.debug("z: " + str(z))
+            return str(tag)
+            break
+
+    logging.debug("no last price found")
+    return "---"
+
+#looks for Bid in span then reads price
 def yScrape(stock):
 
     logging.debug("yScrape enter")
@@ -101,7 +123,20 @@ def loadOptionsData():
         except FileNotFoundError:
             print("Error: file not found: " + filename)
             logging.critical("Error: file not found: " + filename)
+            exit(1)
         return data
+
+def parseBid2(b):
+    #logging.debug("parseBid2: " + b)
+    try:
+        a = b.split('>')
+        #logging.debug("a: " + a)
+        b = a[1].split('<')
+        #logging.debug("parseBid2: " + str(float(b[0])))
+        return float(b[0].replace(",", ""))
+    except ValueError:
+        logging.warning("Could not convert bid: " + str(b))
+        return 9999
 
 def parseBid(b):
     try:
@@ -127,8 +162,10 @@ def run():
         optionsPrice = float(d["price"])
         expDate = d["date"]
 
-        r = yScrape(stock)
-        bid = parseBid(r)
+        #r = yScrape(stock)
+        #bid = parseBid(r)
+        r = yScrape2(stock)
+        bid = parseBid2(r)
 
         so = StockOpt()
         so.name = stock
