@@ -172,6 +172,7 @@ def run():
         so.currentPrice = bid
         so.optsPrice = optionsPrice
         so.expirationDate = expDate
+        so.premium = premium
         a = datetime.strptime(expDate, date_format)
         so.DTE = (a - today).days
 
