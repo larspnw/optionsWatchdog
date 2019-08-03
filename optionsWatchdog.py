@@ -5,9 +5,10 @@ import re
 from datetime import datetime
 import logging
 import io
+import sys
 
-#TODO output as json option
-
+#OPTIONSFILE = 'optionsData.txt'
+OPTIONSFILE = 'optionsDataTest.txt'  #test file
 logging.basicConfig(level=logging.WARNING)
 #logging.basicConfig(level=logging.DEBUG)
 HEADER = "   Stock DTE CurrPrice OptsPrice Type Status %OTM Prem"
@@ -15,13 +16,8 @@ date_format = "%Y/%m/%d"
 today = datetime.today()
 logging.debug(today)
 isAWS = True
-
-#Don't need config yet...
-#with open('config.json') as json_data_file:
-#config = json.load(json_data_file)
-#logging.debug("config: " + json.dumps(config, indent=4))
-#aws = config["aws"]
-#logging.debug("aws: " + aws)
+requestJson = False
+#TODO throws exception when query param is not sent
 
 class StockOpt:
     name = ""
@@ -41,15 +37,38 @@ class StockOpt:
             alert = "---"
         return "{:3} {:4} {:3} {:>7} {:>7} {:4} {:3} {:>.0f}% {:5}".format(alert, self.name, self.DTE, self.currentPrice, str(self.optsPrice), self.optType, self.IOTM, self.pctIOTM, self.premium)
 
+    def toJson(self):
+        logging.debug("stockOptions.toJson enter")
+        alert = ""
+
+        j = {}
+        j['name'] = self.name
+        j['DTE'] = self.DTE
+        j['price'] = self.currentPrice
+        j['optionsPrice'] = self.optsPrice
+        j['type'] = self.optType
+        j['IOTM'] = self.IOTM
+        j['pctIOTM'] = self.pctIOTM
+        j['premium'] = self.premium
+        return j
+
 def lambda_handler(event, context):
 
+    rj = event["queryStringParameters"]["requestJson"]
+    if rj == "true":
+        requestJson = True
     logging.debug("lambda_handler enter")
     r = run()
-    return {
-        'statusCode': 200,
-        'body': r
-    }
-    #'body': json.dumps(r)
+    if requestJson:
+        return {
+            'statusCode': 200,
+            'body': json.dumps(r)
+        }
+    else:
+        return {
+            'statusCode': 200,
+            'body': r
+        }
 
 #looks for data-reactid based on agent type
 def yScrape2(stock):
@@ -106,7 +125,7 @@ def loadOptionsData():
         import boto3
         s3 = boto3.client('s3')
         try:
-            data = s3.get_object(Bucket='larsbucket1', Key='optionsData.txt')
+            data = s3.get_object(Bucket='larsbucket1', Key=OPTIONSFILE)
             json_data = json.load(data['Body'])
             #json_data = json.load(data['Body'].read())
             return json_data
@@ -116,9 +135,8 @@ def loadOptionsData():
 
     else:
         logging.debug("loadOptionsData enter")
-        filename = "optionsData.txt"
         try:
-            with open(filename) as json_file:
+            with open(OPTIONSFILE) as json_file:
                 data = json.load(json_file)
         except FileNotFoundError:
             print("Error: file not found: " + filename)
@@ -155,11 +173,11 @@ def run():
     stockOptionsList = []
 
     for d in data["stock"]:
-        stock = d["name"]
-        optionsType = d["type"]
-        optionsPrice = float(d["price"])
-        expDate = d["date"]
-        premium = d["premium"]
+        stock = d.get("name", "***")
+        optionsType = d.get("type", "")
+        optionsPrice = float(d.get("price", 9999))
+        expDate = d.get("date", "1/1/1970")
+        premium = d.get("premium", 0)
 
         #r = yScrape(stock)
         #bid = parseBid(r)
@@ -195,20 +213,35 @@ def run():
 
     #enumerate list
 
-    #report stock, price, options, in/OTM, %OTM, DTE - sort by ITM, DTE
-    output = io.StringIO()
-    output.write(HEADER + "\n")
-
+    if requestJson == False:
+        #report stock, price, options, in/OTM, %OTM, DTE - sort by ITM, DTE
+        output = io.StringIO()
+        output.write(HEADER + "\n")
+    list = []
     #sort by ITM then DTE
     stockOptionsList.sort(key=lambda stockOptions: stockOptions.DTE)
     stockOptionsList.sort(key=lambda stockOptions: stockOptions.IOTM)
     #logging.debug("sorted: " + soSorted)
     for e in stockOptionsList:
-        output.write(e.toString() + "\n")
+        if requestJson:
+            list.append(e.toJson())
+        else:
+            output.write(e.toString() + "\n")
 
-    return output.getvalue()
+    if requestJson:
+        return list
+    else:
+        return output.getvalue()
 
 if __name__ == '__main__':
     isAWS = False
+    if len(sys.argv) == 2 :
+        if sys.argv[1] == '-json':
+            logging.debug("request for json output")
+            requestJson = True
     r = run()
-    print(r)
+    if requestJson:
+        #logging.debug("r: " + str(len(r)))
+        print(json.dumps(r))
+    else:
+        print(r)
