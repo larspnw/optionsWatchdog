@@ -9,15 +9,17 @@ import sys
 
 #OPTIONSFILE = 'optionsData.txt'
 OPTIONSFILE = 'optionsDataTest.txt'  #test file
-logging.basicConfig(level=logging.WARNING)
+# Retrieve the logger instance
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+#logging.basicConfig(level = logging.INFO)
+#logging.basicConfig(level=logging.WARNING)
 #logging.basicConfig(level=logging.DEBUG)
 HEADER = "   Stock DTE CurrPrice OptsPrice Type Status %OTM Prem"
 date_format = "%Y/%m/%d"
 today = datetime.today()
 logging.debug(today)
 isAWS = True
-requestJson = False
-#TODO throws exception when query param is not sent
 
 class StockOpt:
     name = ""
@@ -53,12 +55,15 @@ class StockOpt:
         return j
 
 def lambda_handler(event, context):
-
-    rj = event["queryStringParameters"]["requestJson"]
-    if rj == "true":
-        requestJson = True
     logging.debug("lambda_handler enter")
-    r = run()
+    logger.info('## EVENT')
+    logger.info(event)
+    rj = event["queryStringParameters"]["requestJson"]
+    if str(rj) == "true":
+        #logging.info("setting request for json")
+        requestJson = True
+    #logging.info("requestJson: " + str(rj))
+    r = run(requestJson)
     if requestJson:
         return {
             'statusCode': 200,
@@ -165,7 +170,7 @@ def parseBid(b):
         logging.warning("Could not convert bid: " + str(b))
         return 9999
 
-def run():
+def run(requestJson):
     #read file into list
     data = loadOptionsData()
     logging.debug(json.dumps(data,indent=4))
@@ -214,6 +219,7 @@ def run():
     #enumerate list
 
     if requestJson == False:
+        logger.info("no json response")
         #report stock, price, options, in/OTM, %OTM, DTE - sort by ITM, DTE
         output = io.StringIO()
         output.write(HEADER + "\n")
@@ -239,7 +245,7 @@ if __name__ == '__main__':
         if sys.argv[1] == '-json':
             logging.debug("request for json output")
             requestJson = True
-    r = run()
+    r = run(requestJson)
     if requestJson:
         #logging.debug("r: " + str(len(r)))
         print(json.dumps(r))
