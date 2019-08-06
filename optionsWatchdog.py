@@ -59,18 +59,18 @@ def lambda_handler(event, context):
     logger.info('## EVENT')
     logger.info(event)
     rj = event["queryStringParameters"]["requestJson"]
+    requestJson = False
     if str(rj) == "true":
         #logging.info("setting request for json")
         requestJson = True
+
     #logging.info("requestJson: " + str(rj))
     r = run(requestJson)
     if requestJson:
         return {
             'statusCode': 200,
             'body': json.dumps(r)
-        }
-    else:
-        return {
+
             'statusCode': 200,
             'body': r
         }
