@@ -7,8 +7,9 @@ import logging
 import io
 import sys
 
-#OPTIONSFILE = 'optionsData.txt'
-OPTIONSFILE = 'optionsDataTest.txt'  #test file
+OPTIONSFILE = 'optionsData.txt'
+#OPTIONSFILE = 'optionsDataTest.txt'  #test file
+OPTIONSFILETEST = 'optionsDataTest.txt'  #test file
 # Retrieve the logger instance
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -50,7 +51,7 @@ class StockOpt:
         j['optionsPrice'] = self.optsPrice
         j['type'] = self.optType
         j['IOTM'] = self.IOTM
-        j['pctIOTM'] = self.pctIOTM
+        j['pctIOTM'] = "{:>.0f}%".format(self.pctIOTM)
         j['premium'] = self.premium
         return j
 
@@ -58,21 +59,24 @@ def lambda_handler(event, context):
     logging.debug("lambda_handler enter")
     logger.info('## EVENT')
     logger.info(event)
-    rj = event["queryStringParameters"]["requestJson"]
     requestJson = False
-    if str(rj) == "true":
-        #logging.info("setting request for json")
-        requestJson = True
+    if 'queryStringParameters' in event and 'requestJson' in event['queryStringParameters']:
+        rj = event["queryStringParameters"]["requestJson"]
+        if str(rj) == "true":
+            #logging.info("setting request for json")
+            requestJson = True
+    if 'queryStringParameters' in event and 'test' in event['queryStringParameters']:
+        OPTIONSFILE = OPTIONSFILETEST
+        logging.info("using test options file")
 
-    #logging.info("requestJson: " + str(rj))
     r = run(requestJson)
     if requestJson:
         return {
             'statusCode': 200,
             'body': json.dumps(r)
 
-            'statusCode': 200,
-            'body': r
+            #'statusCode': 200,
+            #'body': r
         }
 
 #looks for data-reactid based on agent type
@@ -241,6 +245,7 @@ def run(requestJson):
 
 if __name__ == '__main__':
     isAWS = False
+    requestJson = False
     if len(sys.argv) == 2 :
         if sys.argv[1] == '-json':
             logging.debug("request for json output")
