@@ -91,6 +91,7 @@ class StockOpt:
         j['IOTM'] = self.IOTM
         j['pctIOTM'] = "{:>.0f}%".format(self.pctIOTM)
         j['premium'] = self.premium
+        j['expirationDate'] = self.expirationDate
         return j
 
 def lambda_handler(event, context):
