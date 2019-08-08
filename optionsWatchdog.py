@@ -12,10 +12,10 @@ OPTIONSFILE = 'optionsData.txt'
 OPTIONSFILETEST = 'optionsDataTest.txt'  #test file
 # Retrieve the logger instance
 logger = logging.getLogger()
+
 logger.setLevel(logging.INFO)
-#logging.basicConfig(level = logging.INFO)
-#logging.basicConfig(level=logging.WARNING)
-#logging.basicConfig(level=logging.DEBUG)
+#logger.setLevel(logging.DEBUG)
+
 HEADER = "   Stock DTE CurrPrice OptsPrice Type Status %OTM Prem"
 date_format = "%Y/%m/%d"
 today = datetime.today()
@@ -32,19 +32,57 @@ class StockOpt:
     expirationDate = ""
     DTE = 0
     premium = 0
+    alert = "n"
+
+    def calcPct(self, bid):
+        optionsType = self.optType
+        optionsPrice = self.optsPrice
+        pctIOTM = 0
+
+        if optionsType == "put":
+            if optionsPrice < bid:
+                IOTM = "OTM"
+                pctIOTM = (1 - optionsPrice/bid) * 100
+            else:
+                IOTM = "ITM"
+        else:
+            #calls
+            if optionsPrice > bid:
+                #OTM
+                IOTM = "OTM"
+                pctIOTM = (optionsPrice/bid - 1) * 100
+            else:
+                IOTM = "ITM"
+                pctIOTM = (bid/optionsPrice - 1) * 100
+        return [IOTM, pctIOTM]
+
+    def alerted(self):
+        logging.debug("alerted: IOTM: " + self.IOTM + "; pct: " + str(self.pctIOTM))
+        alert = "n"
+        if self.IOTM == "ITM":
+            alert = 'y'
+
+        if self.IOTM == "OTM":
+            if self.pctIOTM < 4:
+                alert = 'y'
+
+        return alert
 
     def toString(self):
         logging.debug("stockOptions.toString enter")
-        alert = ""
-        if self.IOTM == "ITM":
+        alert = alerted(self)
+        if alert == 'y':
             alert = "---"
+        else:
+            alert = ""
+
         return "{:3} {:4} {:3} {:>7} {:>7} {:4} {:3} {:>.0f}% {:5}".format(alert, self.name, self.DTE, self.currentPrice, str(self.optsPrice), self.optType, self.IOTM, self.pctIOTM, self.premium)
 
     def toJson(self):
         logging.debug("stockOptions.toJson enter")
-        alert = ""
 
         j = {}
+        j['alert'] = self.alerted()
         j['name'] = self.name
         j['DTE'] = self.DTE
         j['price'] = self.currentPrice
@@ -202,22 +240,8 @@ def run(requestJson):
         so.premium = premium
         a = datetime.strptime(expDate, date_format)
         so.DTE = (a - today).days
+        [so.IOTM, so.pctIOTM] = so.calcPct(bid)
 
-        if optionsType == "put":
-            if optionsPrice < bid:
-                so.IOTM = "OTM"
-                so.pctIOTM = (1 - optionsPrice/bid) * 100
-            else:
-                so.IOTM = "ITM"
-        else:
-            #calls
-            if optionsPrice > bid:
-                #OTM
-                so.IOTM = "OTM"
-                so.pctIOTM = (optionsPrice/bid - 1) * 100
-            else:
-                so.IOTM = "ITM"
-                so.pctIOTM = (bid/optionsPrice - 1) * 100
         stockOptionsList.append(so)
 
     #enumerate list
