@@ -96,8 +96,8 @@ class StockOpt:
 
 def lambda_handler(event, context):
     logging.debug("lambda_handler enter")
-    logger.info('## EVENT')
-    logger.info(event)
+    logger.debug('## EVENT')
+    logger.debug(event)
     requestJson = False
     if 'queryStringParameters' in event and 'requestJson' in event['queryStringParameters']:
         rj = event["queryStringParameters"]["requestJson"]
@@ -254,6 +254,7 @@ def run(requestJson):
         output.write(HEADER + "\n")
     list = []
     #sort by ITM then DTE
+    stockOptionsList.sort(key=lambda stockOptions: stockOptions.pctIOTM)
     stockOptionsList.sort(key=lambda stockOptions: stockOptions.DTE)
     stockOptionsList.sort(key=lambda stockOptions: stockOptions.IOTM)
     #logging.debug("sorted: " + soSorted)
