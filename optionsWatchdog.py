@@ -21,6 +21,7 @@ date_format = "%Y/%m/%d"
 today = datetime.today()
 logging.debug(today)
 isAWS = True
+yPrice = {}
 
 class StockOpt:
     name = ""
@@ -98,6 +99,7 @@ def lambda_handler(event, context):
     logging.debug("lambda_handler enter")
     logger.debug('## EVENT')
     logger.debug(event)
+    yPrice.clear()
     requestJson = False
     if 'queryStringParameters' in event and 'requestJson' in event['queryStringParameters']:
         rj = event["queryStringParameters"]["requestJson"]
@@ -227,10 +229,12 @@ def run(requestJson):
         expDate = d.get("date", "1/1/1970")
         premium = d.get("premium", 0)
 
-        #r = yScrape(stock)
-        #bid = parseBid(r)
-        r = yScrape2(stock)
-        bid = parseBid2(r)
+        if stock in yPrice:
+            bid = yPrice[stock]
+        else:
+            r = yScrape2(stock)
+            bid = parseBid2(r)
+            yPrice[stock] = bid
 
         so = StockOpt()
         so.name = stock
