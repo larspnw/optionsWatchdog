@@ -59,20 +59,25 @@ class StockOpt:
 
     def alerted(self):
         logging.debug("alerted: IOTM: " + self.IOTM + "; pct: " + str(self.pctIOTM))
-        alert = "n"
+        alert = 2
         if self.IOTM == "ITM":
-            alert = 'y'
+            alert = 0
 
         if self.IOTM == "OTM":
             if self.pctIOTM < 4:
-                alert = 'y'
+                alert = 0
+            else:
+                if self.pctIOTM < 6:
+                    alert = 1
 
         return alert
 
     def toString(self):
         logging.debug("stockOptions.toString enter")
         alert = alerted(self)
-        if alert == 'y':
+        if alert == 0:
+            alert = "***"
+        if alert == 1:
             alert = "---"
         else:
             alert = ""
@@ -110,7 +115,7 @@ def lambda_handler(event, context):
         OPTIONSFILE = OPTIONSFILETEST
         logging.info("using test options file")
 
-    r = run(requestJson)
+    r = run2()
     if requestJson:
         return {
             'statusCode': 200,
@@ -214,6 +219,61 @@ def parseBid(b):
     except ValueError:
         logging.warning("Could not convert bid: " + str(b))
         return 9999
+
+def getFromDynamo():
+    import boto3
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+    table = dynamodb.Table('Options')
+
+    response = table.scan()
+    data = response['Items']
+    return data
+
+def run2():
+    #TODO fix duplicate code
+
+    #load from db
+    data = getFromDynamo()
+    stockOptionsList = []
+
+    for d in data:
+        logging.debug("d: ", d)
+        stock = d.get("name", "***")
+        optionsType = d.get("type", "")
+        optionsPrice = float(d.get("optionsPrice", 9999))
+        expDate = d.get("expirationDate", "1970/1/1")
+        premium = d.get("premium", 0)
+
+        if stock in yPrice:
+            bid = yPrice[stock]
+        else:
+            r = yScrape2(stock)
+            bid = parseBid2(r)
+            yPrice[stock] = bid
+
+        so = StockOpt()
+        so.name = stock
+        so.optType = optionsType
+        so.currentPrice = bid
+        so.optsPrice = optionsPrice
+        so.expirationDate = expDate
+        so.premium = premium
+        a = datetime.strptime(expDate, date_format)
+        so.DTE = (a - today).days
+        [so.IOTM, so.pctIOTM] = so.calcPct(bid)
+
+        stockOptionsList.append(so)
+
+    #enumerate list
+    list = []
+    #sort by ITM then DTE
+    stockOptionsList.sort(key=lambda stockOptions: stockOptions.pctIOTM)
+    stockOptionsList.sort(key=lambda stockOptions: stockOptions.DTE)
+    stockOptionsList.sort(key=lambda stockOptions: stockOptions.IOTM)
+
+    for e in stockOptionsList:
+        list.append(e.toJson())
+    return list
 
 def run(requestJson):
     #read file into list
