@@ -1,97 +1,56 @@
-import logging
 import json
+import logging
+import boto3
 
-INCOMINGFILE = 'optionsIn.txt'
-#OPTIONSFILE = 'optionsData.txt'
-OPTIONSFILE = 'optionsDataTest.txt'  #test file
-# Retrieve the logger instance
 logger = logging.getLogger()
-#logger.setLevel(logging.INFO)
 logger.setLevel(logging.DEBUG)
 
 def lambda_handler(event, context):
     logger.debug("event: " + json.dumps(event))
-    body = event["body"]
+    body = None
+    if 'body' in event:
+        body = event["body"]
+    if body is None:
+        return {
+            'statusCode': 500,
+            'body': json.dumps('Input json not received')
+        }
+
     logger.debug("body: " + json.dumps(body))
-    isAWS = True
-
-    r = run()
-
-
-    #TODO write new options data file
-    return {
-        'body': json.dumps('Status: ' + body)
-        #TODO return status
-    }
-
-def run(reqBody):
-    data = loadOptionsData()
-    if isAWS:
-        inData = reqBody
-    else:
-        inData = loadOptionsIn()
-
-    for stock in inData:
-        logging.debug("stock" + json.dumps( stock))
-        data["stock"].append(stock)
-
-    logging.debug("end data:")
-    logging.debug(json.dumps(data))
-    return data
-
-def writeOptionsData():
-
-HERE - getting heavy - look into S3 put_object
-
-        import boto3
-        s3 = boto3.client('s3')
-        try:
-            data = s3.get_object(Bucket='larsbucket1', Key=OPTIONSFILETMP)
-            json_data = json.load(data['Body'])
-            #json_data = json.load(data['Body'].read())
-            return json_data
-        except Exception as e:
-            logging.critical(e)
-            raise e
-
-def loadOptionsIn():
-    logging.debug("loadOptionsIn enter")
+    stocks = {}
     try:
-        with open(INCOMINGFILE) as json_file:
-        data = json.load(json_file)
-    except FileNotFoundError:
-        print("Error: file not found: " + INCOMINGFILE)
-        logging.critical("Error: file not found: " + INCOMINGFILE)
-        exit(1)
+        stocks = json.loads(body)
+        #logger.debug("loaded: ",  stocks)
 
-    return data
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps('could not load json body')
+        }
 
-def loadOptionsData():
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 
-    if isAWS == True:
-        import boto3
-        s3 = boto3.client('s3')
-        try:
-            data = s3.get_object(Bucket='larsbucket1', Key=OPTIONSFILE)
-            json_data = json.load(data['Body'])
-            #json_data = json.load(data['Body'].read())
-            return json_data
-        except Exception as e:
-            logging.critical(e)
-            raise e
+    table = dynamodb.Table('Options')
+    for stock in stocks:
+        logging.debug("stock: ", stock)
 
-    else:
-        logging.debug("loadOptionsData enter")
-        try:
-            with open(OPTIONSFILE) as json_file:
-                data = json.load(json_file)
-        except FileNotFoundError:
-            print("Error: file not found: " + filename)
-            logging.critical("Error: file not found: " + filename)
-            exit(1)
-        return data
+        name = stock.get("name", "unknown")
+        optionsType = stock.get("type", "")
+        optionsPrice = stock.get("price", 9999)
+        expirationDate = stock.get("date", 1/1/1970)
+        premium = stock.get("premium", "0")
 
-if __name__ == '__main__':
-    isAWS = False
-    r = run()
-    print(json.dumps(r))
+        table.put_item(
+            Item={
+                'nameTypePrice': name + optionsType + optionsPrice,
+                'name': name,
+                'type': optionsType,
+                'optionsPrice': optionsPrice,
+                'expirationDate': expirationDate,
+                'premium': premium,
+            }
+        )
+    return {
+        'statusCode': 200,
+        'body': json.dumps('success'),
+    }
