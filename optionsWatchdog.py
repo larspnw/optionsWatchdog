@@ -106,6 +106,13 @@ def lambda_handler(event, context):
     logger.debug(event)
     yPrice.clear()
     requestJson = False
+    if 'queryStringParameters' in event and 'getIndexes' in event['queryStringParameters']:
+        r = runIndexes()
+        return {
+            'statusCode': 200,
+            'body': json.dumps(r)
+        }
+
     if 'queryStringParameters' in event and 'requestJson' in event['queryStringParameters']:
         rj = event["queryStringParameters"]["requestJson"]
         if str(rj) == "true":
@@ -124,6 +131,54 @@ def lambda_handler(event, context):
             #'statusCode': 200,
             #'body': r
         }
+
+def runIndexes():
+    #TODO create array and loop thru array for indexes
+
+    ilist = []
+    r = yScrape3("^VIX", "16")
+    r2 = parseBid3(r)
+    #print("r2: " , r2)
+    i = StockOpt()
+    i.name = "VIX"
+    i.currentPrice = r2
+    ilist.append(i.toJson())
+
+    r = yScrape3("^GSPC", "16")
+    r2 = parseBid3(r)
+    i2 = StockOpt()
+    i2.name = "S&P"
+    i2.currentPrice = r2
+    ilist.append(i2.toJson())
+
+    return ilist
+
+
+def yScrape3(stock, id):
+    url = "https://finance.yahoo.com/quote/" + stock
+    #url = "https://finance.yahoo.com/quote/^VIX"
+
+    r = requests.get(url)
+    #print("status: ", r.status_code)
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    for tag in soup.find_all('span'):
+        z = re.search(r"data-reactid=\"" + id + "\"", str(tag))
+        #print("re: " + str(z))
+        if z:
+            #print("found it")
+            #print(str(tag))
+            return(str(tag))
+            break
+
+def parseBid3(b):
+    #logging.debug("parseBid2: " + b)
+    a = b.split('>')
+    #logging.debug("a: " + a)
+    b = a[1].split('<')
+    #logging.debug("parseBid2: " + str(float(b[0])))
+    return b[0]
 
 #looks for data-reactid based on agent type
 def yScrape2(stock):
