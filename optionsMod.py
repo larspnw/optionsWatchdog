@@ -1,9 +1,11 @@
 import json
 import logging
 import boto3
+import uuid
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
+#logger.setLevel(logging.DEBUG)
 
 def lambda_handler(event, context):
     logger.debug("event: " + json.dumps(event))
@@ -37,12 +39,14 @@ def lambda_handler(event, context):
         name = stock.get("name", "unknown")
         optionsType = stock.get("type", "")
         optionsPrice = stock.get("price", 9999)
-        expirationDate = stock.get("date", 1/1/1970)
+        #TODO need date validation
+        expirationDate = stock.get("date", "1970/01/01")
         premium = stock.get("premium", "0")
+        u = uuid.uuid4()
 
         table.put_item(
             Item={
-                'nameTypePrice': name + optionsType + optionsPrice,
+                'nameTypePrice': str(u),
                 'name': name,
                 'type': optionsType,
                 'optionsPrice': optionsPrice,
