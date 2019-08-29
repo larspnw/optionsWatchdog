@@ -23,6 +23,18 @@ logging.debug(today)
 isAWS = True
 yPrice = {}
 
+class StockIndex:
+    name = ""
+    price = ""
+    change = ""
+
+    def toJson(self):
+        j = {}
+        j['name'] = self.name
+        j['price'] = self.price
+        j['change'] = self.change
+        return j
+
 class StockOpt:
     name = ""
     currentPrice = 0
@@ -135,21 +147,17 @@ def lambda_handler(event, context):
 def runIndexes():
     #TODO create array and loop thru array for indexes
 
+    indexes = ["^VIX", "^GSPC"]
+    id = "16"
     ilist = []
-    r = yScrape3("^VIX", "16")
-    r2 = parseBid3(r)
-    #print("r2: " , r2)
-    i = StockOpt()
-    i.name = "VIX"
-    i.currentPrice = r2
-    ilist.append(i.toJson())
-
-    r = yScrape3("^GSPC", "16")
-    r2 = parseBid3(r)
-    i2 = StockOpt()
-    i2.name = "S&P"
-    i2.currentPrice = r2
-    ilist.append(i2.toJson())
+    for index in indexes:
+        r = yScrape3(index, id)
+        r2 = parseBid3(r)
+        i = StockIndex()
+        i.name = index
+        i.price = r2[0]
+        i.change = r2[1]
+        ilist.append(i.toJson())
 
     return ilist
 
@@ -178,7 +186,11 @@ def parseBid3(b):
     #logging.debug("a: " + a)
     b = a[1].split('<')
     #logging.debug("parseBid2: " + str(float(b[0])))
-    return b[0]
+    a = b[0].split(" ")
+    price = a[0]
+    change = a[1].replace("(", "")
+    change = change.replace(")", "")
+    return [price, change]
 
 #looks for data-reactid based on agent type
 def yScrape2(stock):
