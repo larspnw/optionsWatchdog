@@ -112,37 +112,47 @@ class StockOpt:
         j['expirationDate'] = self.expirationDate
         return j
 
+def respondWithError(message):
+    return {
+        'statusCode': 503,
+        'body': json.dumps(message)
+    }
+
 def lambda_handler(event, context):
     logging.debug("lambda_handler enter")
     logger.debug('## EVENT')
     logger.debug(event)
     yPrice.clear()
     requestJson = False
-    if 'queryStringParameters' in event and 'getIndexes' in event['queryStringParameters']:
-        r = runIndexes()
-        return {
-            'statusCode': 200,
-            'body': json.dumps(r)
-        }
+    try:
+        if 'queryStringParameters' in event and 'getIndexes' in event['queryStringParameters']:
+            r = runIndexes()
+            return {
+                'statusCode': 200,
+                'body': json.dumps(r)
+            }
 
-    if 'queryStringParameters' in event and 'requestJson' in event['queryStringParameters']:
-        rj = event["queryStringParameters"]["requestJson"]
-        if str(rj) == "true":
-            #logging.info("setting request for json")
-            requestJson = True
-    if 'queryStringParameters' in event and 'test' in event['queryStringParameters']:
-        OPTIONSFILE = OPTIONSFILETEST
-        logging.info("using test options file")
+        if 'queryStringParameters' in event and 'requestJson' in event['queryStringParameters']:
+            rj = event["queryStringParameters"]["requestJson"]
+            if str(rj) == "true":
+                #logging.info("setting request for json")
+                requestJson = True
+        if 'queryStringParameters' in event and 'test' in event['queryStringParameters']:
+            OPTIONSFILE = OPTIONSFILETEST
+            logging.info("using test options file")
 
-    r = run2()
-    if requestJson:
-        return {
-            'statusCode': 200,
-            'body': json.dumps(r)
+        r = run2()
+        if requestJson:
+            return {
+                'statusCode': 200,
+                'body': json.dumps(r)
 
-            #'statusCode': 200,
-            #'body': r
-        }
+                #'statusCode': 200,
+                #'body': r
+            }
+    except:
+        logging.error("Exiting with unknown failure")
+        respondWithError("Unknown failure occurred in lambda handler")
 
 def runIndexes():
     #TODO create array and loop thru array for indexes
@@ -275,8 +285,9 @@ def parseBid2(b):
         #logging.debug("parseBid2: " + str(float(b[0])))
         return float(b[0].replace(",", ""))
     except ValueError:
-        logging.warning("Could not convert bid: " + str(b))
-        return 9999
+        logging.error("Could not convert bid: " + str(b))
+        raise Exception("parsebid2: could not convert bid for " + b)
+        #return 9999
 
 def parseBid(b):
     try:
@@ -311,12 +322,16 @@ def run2():
         expDate = d.get("expirationDate", "1970/1/1")
         premium = d.get("premium", 0)
 
-        if stock in yPrice:
-            bid = yPrice[stock]
-        else:
-            r = yScrape2(stock)
-            bid = parseBid2(r)
-            yPrice[stock] = bid
+        try:
+            if stock in yPrice:
+                bid = yPrice[stock]
+            else:
+                r = yScrape2(stock)
+                bid = parseBid2(r)
+                yPrice[stock] = bid
+        except:
+            logging.warning("scrape and parsing failure for " + stock)
+            return(respondWithError("scrape and parsing failure for " + stock))
 
         so = StockOpt()
         so.name = stock
@@ -326,7 +341,7 @@ def run2():
         so.expirationDate = expDate
         so.premium = premium
         a = datetime.strptime(expDate, date_format)
-        so.DTE = (a - today).days
+        so.DTE = (a - today).days + 1
         [so.IOTM, so.pctIOTM] = so.calcPct(bid)
 
         stockOptionsList.append(so)
